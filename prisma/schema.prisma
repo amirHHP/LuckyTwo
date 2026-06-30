@@ -26,6 +26,7 @@ model User {
   searchingSince  DateTime?
   otpCode         String?
   otpExpiresAt    DateTime?
+  passwordHash    String?
   height          Int?      // Height in cm
   clothing        String?   // "Wearing green linen shirt..."
   role            String    @default("user")    // "user" or "admin"

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getSimulatedTime } from "@/lib/timeMock";
 import { createSession } from "@/lib/session";
 import { ACTIVITY, logUserActivity } from "@/lib/activity";
+import { toSafeUser } from "@/lib/safeUser";
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,13 +62,10 @@ export async function POST(request: NextRequest) {
       createdAt: simulatedTime,
     });
 
-    // Return safe user data
-    const { otpCode: _, otpExpiresAt: __, ...safeUser } = user;
-
     return NextResponse.json({
       success: true,
       message: "ورود با موفقیت انجام شد",
-      user: { ...safeUser, otpCode: null, otpExpiresAt: null },
+      user: toSafeUser(user),
     });
   } catch (error: any) {
     console.error("OTP verification error:", error);

@@ -2,8 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 
+type TimeData = {
+  simulatedTime: string;
+  actualTime?: string;
+  offsetHours: number;
+  success?: boolean;
+};
+
 export default function AdminTimeTravelPage() {
-  const [timeData, setTimeData] = useState<any>(null);
+  const [timeData, setTimeData] = useState<TimeData | null>(null);
   const [customOffset, setCustomOffset] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -46,7 +53,7 @@ export default function AdminTimeTravelPage() {
       if (res.ok) {
         showToast("success", data.message);
         setTimeData(prev => ({
-          ...prev,
+          ...(prev ?? { simulatedTime: "", offsetHours: 0 }),
           simulatedTime: data.simulatedTime,
           offsetHours: data.offsetHours,
         }));

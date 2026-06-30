@@ -21,7 +21,7 @@ model User {
   mbtiType        String?   // e.g., "INFJ"
   interests       String    @default("[]")      // JSON array of strings
   zones           String    @default("[]")      // JSON array of strings (e.g. ["WEST", "NORTH"])
-  walletBalance   Int       @default(0)         // In Tomans
+  walletBalance   Int       @default(0)         // In USD cents
   isSearching     Boolean   @default(false)
   searchingSince  DateTime?
   otpCode         String?
@@ -36,6 +36,7 @@ model User {
   messages        Message[]
   sessions        Session[]
   cryptoDeposits  CryptoDeposit[]
+  activities      UserActivity[]
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -46,7 +47,7 @@ model CryptoDeposit {
   userId         String
   user           User      @relation(fields: [userId], references: [id])
 
-  amountTomans   Int
+  amountCents    Int
   payCurrency    String
   payAmount      Float
   payAddress     String?
@@ -92,7 +93,7 @@ model Match {
   male               User      @relation("MaleMatches", fields: [maleId], references: [id])
   female             User      @relation("FemaleMatches", fields: [femaleId], references: [id])
   
-  status             String    @default("SEARCHING") // SEARCHING, PAYMENT_PENDING, SCHEDULE_PENDING, SCHEDULE_CONFIRMED, COMPLETED, REFUNDED, CANCELLED
+  status             String    @default("SEARCHING") // SEARCHING, PAYMENT_PENDING, SCHEDULE_PENDING, SCHEDULE_CONFIRMED, COMPLETED, NO_SHOW, REFUNDED, CANCELLED
   compatibilityScore Int       @default(0)
   
   // Scheduling details
@@ -121,4 +122,17 @@ model Message {
 model SystemSetting {
   key   String @id
   value String
+}
+
+model UserActivity {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  detail    String?
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

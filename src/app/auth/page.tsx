@@ -62,7 +62,13 @@ export default function AuthPage() {
       // Route based on role and onboarding status
       if (user.role === "admin") {
         router.push("/admin");
-      } else if (!user.firstName || !user.gender || !user.mbtiType || user.selfieStatus === "PENDING" && !user.selfieUrl) {
+      } else if (
+        !user.firstName ||
+        !user.gender ||
+        !user.mbtiType ||
+        !user.selfieUrl ||
+        user.selfieStatus === "REJECTED"
+      ) {
         router.push("/onboarding");
       } else {
         router.push("/dashboard");

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,6 +49,13 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.update({
       where: { id: auth.user.id },
       data: { mbtiType: mbti },
+    });
+
+    await logUserActivity({
+      userId: auth.user.id,
+      type: ACTIVITY.QUIZ_COMPLETED,
+      title: "تکمیل تست شخصیت MBTI",
+      detail: `نتیجه: ${mbti}`,
     });
 
     return NextResponse.json({

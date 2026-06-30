@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/session";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,6 +13,7 @@ export async function GET(request: NextRequest) {
     const pendingUsers = await prisma.user.findMany({
       where: {
         selfieStatus: "PENDING",
+        selfieUrl: { not: null },
       },
       orderBy: {
         createdAt: "desc",
@@ -57,6 +59,13 @@ export async function POST(request: NextRequest) {
         selfieStatus: status,
         isVerified,
       },
+    });
+
+    await logUserActivity({
+      userId,
+      type: action === "approve" ? ACTIVITY.SELFIE_APPROVED : ACTIVITY.SELFIE_REJECTED,
+      title: action === "approve" ? "تأیید سلفی توسط ادمین" : "رد سلفی توسط ادمین",
+      metadata: { adminId: auth.user.id },
     });
 
     return NextResponse.json({

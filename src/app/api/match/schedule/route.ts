@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { getSimulatedTime } from "@/lib/timeMock";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
+import {
+  FEMALE_NO_SHOW_PENALTY_CENTS,
+  MALE_MATCH_FEE_CENTS,
+  formatUsd,
+} from "@/lib/wallet";
+
+const NO_SHOW_GRACE_MS = 30 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,6 +56,14 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      await logUserActivity({
+        userId,
+        type: ACTIVITY.SCHEDULE_PROPOSED,
+        title: "پیشنهاد زمان قرار",
+        detail: new Date(selectedSlot).toLocaleString("fa-IR"),
+        metadata: { matchId },
+      });
+
       return NextResponse.json({
         success: true,
         message: "زمان پیشنهادی با موفقیت ثبت شد و در انتظار تایید خانم است.",
@@ -69,6 +86,16 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      await logUserActivity({
+        userId,
+        type: ACTIVITY.SCHEDULE_CONFIRMED,
+        title: "تأیید نهایی زمان قرار",
+        detail: match.timeSlotSelected
+          ? new Date(match.timeSlotSelected).toLocaleString("fa-IR")
+          : undefined,
+        metadata: { matchId },
+      });
+
       return NextResponse.json({
         success: true,
         message: "قرار ملاقات با موفقیت تایید و قفل شد.",
@@ -83,22 +110,13 @@ export async function POST(request: NextRequest) {
         if (match.malePaid) {
           await prisma.user.update({
             where: { id: match.maleId },
-            data: { walletBalance: { increment: 200000 } },
+            data: { walletBalance: { increment: MALE_MATCH_FEE_CENTS } },
           });
         }
-        if (match.femalePaid) {
-          await prisma.user.update({
-            where: { id: match.femaleId },
-            data: { walletBalance: { increment: 50000 } },
-          });
-        }
-      } else {
-        const nonCancelerId = isMale ? match.femaleId : match.maleId;
-        const refundAmt = isMale ? 50000 : 200000;
-        
+      } else if (isFemale && match.malePaid) {
         await prisma.user.update({
-          where: { id: nonCancelerId },
-          data: { walletBalance: { increment: refundAmt } },
+          where: { id: match.maleId },
+          data: { walletBalance: { increment: MALE_MATCH_FEE_CENTS } },
         });
       }
 
@@ -109,12 +127,107 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      await logUserActivity({
+        userId,
+        type: ACTIVITY.MATCH_CANCELLED,
+        title: "لغو قرار ملاقات",
+        detail: isForfeited ? "لغو در وضعیت قفل‌شده" : "بازگشت هزینه",
+        metadata: { matchId },
+      });
+
       return NextResponse.json({
         success: true,
         message: isForfeited
-          ? "قرار لغو شد. به علت لغو در وضعیت قفل شده، هزینه شما سوخت شد."
+          ? isMale
+            ? "قرار لغو شد. به علت لغو در وضعیت قفل‌شده، هزینه شما سوخت شد."
+            : "قرار لغو شد و هزینه آقا بازگردانده شد."
           : "قرار لغو شد و هزینه‌ها بازگردانده شد.",
         match: updatedMatch,
+      });
+    }
+
+    if (action === "complete_match") {
+      if (match.status !== "SCHEDULE_CONFIRMED" || !match.timeSlotSelected) {
+        return NextResponse.json({ error: "قرار هنوز تأیید نشده است" }, { status: 400 });
+      }
+
+      const simulatedTime = await getSimulatedTime();
+      if (simulatedTime.getTime() < new Date(match.timeSlotSelected).getTime()) {
+        return NextResponse.json({ error: "هنوز زمان قرار نرسیده است" }, { status: 400 });
+      }
+
+      const updatedMatch = await prisma.match.update({
+        where: { id: matchId },
+        data: { status: "COMPLETED" },
+      });
+
+      await logUserActivity({
+        userId,
+        type: ACTIVITY.MATCH_COMPLETED,
+        title: "تکمیل قرار ملاقات",
+        metadata: { matchId },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "قرار با موفقیت تکمیل شد.",
+        match: updatedMatch,
+      });
+    }
+
+    if (action === "report_no_show") {
+      if (!isMale) {
+        return NextResponse.json({ error: "فقط آقا می‌تواند عدم حضور را گزارش کند" }, { status: 403 });
+      }
+      if (match.status !== "SCHEDULE_CONFIRMED" || !match.timeSlotSelected) {
+        return NextResponse.json({ error: "قرار هنوز تأیید نشده است" }, { status: 400 });
+      }
+
+      const simulatedTime = await getSimulatedTime();
+      const scheduledAt = new Date(match.timeSlotSelected).getTime();
+      if (simulatedTime.getTime() < scheduledAt + NO_SHOW_GRACE_MS) {
+        return NextResponse.json(
+          { error: "حداقل ۳۰ دقیقه بعد از زمان قرار می‌توانید عدم حضور را گزارش کنید" },
+          { status: 400 }
+        );
+      }
+
+      const female = await prisma.user.findUnique({ where: { id: match.femaleId } });
+      if (!female) {
+        return NextResponse.json({ error: "کاربر یافت نشد" }, { status: 404 });
+      }
+
+      const newBalance = female.walletBalance - FEMALE_NO_SHOW_PENALTY_CENTS;
+
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: match.femaleId },
+          data: { walletBalance: newBalance },
+        }),
+        prisma.match.update({
+          where: { id: matchId },
+          data: { status: "NO_SHOW" },
+        }),
+      ]);
+
+      await logUserActivity({
+        userId: match.femaleId,
+        type: ACTIVITY.NO_SHOW_PENALTY,
+        title: "جریمه عدم حضور در قرار",
+        detail: `${formatUsd(FEMALE_NO_SHOW_PENALTY_CENTS)} از کیف پول کسر شد — موجودی: ${formatUsd(newBalance)}`,
+        metadata: { matchId },
+      });
+
+      await logUserActivity({
+        userId,
+        type: ACTIVITY.MATCH_NO_SHOW,
+        title: "گزارش عدم حضور در قرار",
+        metadata: { matchId },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "عدم حضور ثبت شد و جریمه به کیف پول خانم اعمال شد.",
       });
     }
 

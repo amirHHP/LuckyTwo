@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { centsToUsd, formatUsd } from "@/lib/wallet";
 
 export const SUPPORTED_CURRENCIES = [
   { code: "usdttrc20", label: "USDT (TRC20)", icon: "₮" },
@@ -9,17 +10,12 @@ export const SUPPORTED_CURRENCIES = [
 
 export type PayCurrency = (typeof SUPPORTED_CURRENCIES)[number]["code"];
 
-const TOMAN_PER_USD = Number(process.env.TOMAN_PER_USD || "50000");
 const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY;
 const NOWPAYMENTS_IPN_SECRET = process.env.NOWPAYMENTS_IPN_SECRET;
 const NOWPAYMENTS_API_URL =
   process.env.NOWPAYMENTS_API_URL || "https://api.nowpayments.io/v1";
 
 export const isMockMode = !NOWPAYMENTS_API_KEY;
-
-export function tomansToUsd(tomans: number): number {
-  return tomans / TOMAN_PER_USD;
-}
 
 function mockUsdRates(): Record<string, number> {
   return { usdttrc20: 1, btc: 95000, eth: 3500, trx: 0.12 };
@@ -43,12 +39,12 @@ export interface CreatePaymentResult {
 }
 
 export async function createCryptoPayment(
-  amountTomans: number,
+  amountCents: number,
   payCurrency: string,
   orderId: string,
   callbackUrl: string
 ): Promise<CreatePaymentResult> {
-  const usdAmount = tomansToUsd(amountTomans);
+  const usdAmount = centsToUsd(amountCents);
 
   if (isMockMode) {
     const rates = mockUsdRates();
@@ -79,7 +75,7 @@ export async function createCryptoPayment(
       price_currency: "usd",
       pay_currency: payCurrency,
       order_id: orderId,
-      order_description: `LuckyTwo wallet top-up ${amountTomans} Tomans`,
+      order_description: `LuckyTwo wallet top-up ${formatUsd(amountCents)}`,
       ipn_callback_url: callbackUrl,
     }),
   });

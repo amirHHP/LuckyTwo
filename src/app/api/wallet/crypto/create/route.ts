@@ -6,8 +6,9 @@ import {
   createCryptoPayment,
   isMockMode,
 } from "@/lib/cryptoPayments";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
+import { MIN_DEPOSIT_CENTS, dollarsToCents, formatUsd } from "@/lib/wallet";
 
-const MIN_DEPOSIT = 50000;
 const DEPOSIT_EXPIRY_HOURS = 1;
 
 export async function POST(request: NextRequest) {
@@ -18,11 +19,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { amount, currency } = await request.json();
-    const amountTomans = parseInt(amount, 10);
+    const amountCents = dollarsToCents(parseFloat(amount));
 
-    if (!amountTomans || amountTomans < MIN_DEPOSIT) {
+    if (!amountCents || amountCents < MIN_DEPOSIT_CENTS) {
       return NextResponse.json(
-        { error: `حداقل مبلغ شارژ ${MIN_DEPOSIT.toLocaleString()} تومان است` },
+        { error: `حداقل مبلغ شارژ ${formatUsd(MIN_DEPOSIT_CENTS)} است` },
         { status: 400 }
       );
     }
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     const deposit = await prisma.cryptoDeposit.create({
       data: {
         userId: auth.user.id,
-        amountTomans,
+        amountCents,
         payCurrency,
         payAmount: 0,
         expiresAt,
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     const callbackUrl = `${appUrl}/api/wallet/crypto/webhook`;
 
     const payment = await createCryptoPayment(
-      amountTomans,
+      amountCents,
       payCurrency,
       deposit.id,
       callbackUrl
@@ -65,10 +66,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    await logUserActivity({
+      userId: auth.user.id,
+      type: ACTIVITY.CRYPTO_DEPOSIT_CREATED,
+      title: "ایجاد درخواست شارژ کریپتو",
+      detail: `${formatUsd(amountCents)} (${payCurrency})`,
+      metadata: { depositId: deposit.id },
+    });
+
     return NextResponse.json({
       deposit: {
         id: updated.id,
-        amountTomans: updated.amountTomans,
+        amountCents: updated.amountCents,
         payCurrency: updated.payCurrency,
         payAmount: updated.payAmount,
         payAddress: updated.payAddress,

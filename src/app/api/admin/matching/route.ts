@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
 
     const matches = await prisma.match.findMany({
       include: {
-        male: { select: { firstName: true, email: true, mbtiType: true } },
-        female: { select: { firstName: true, email: true, mbtiType: true } },
+        male: { select: { id: true, firstName: true, email: true, mbtiType: true } },
+        female: { select: { id: true, firstName: true, email: true, mbtiType: true } },
         cafe: true,
       },
       orderBy: { createdAt: "desc" },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSimulatedTime } from "@/lib/timeMock";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +19,8 @@ export async function POST(request: Request) {
     const simulatedTime = await getSimulatedTime();
     const otpExpiresAt = new Date(simulatedTime.getTime() + 5 * 60 * 1000); // 5 min expiry
 
+    const existing = await prisma.user.findUnique({ where: { email } });
+
     const user = await prisma.user.upsert({
       where: { email },
       update: {
@@ -30,6 +33,16 @@ export async function POST(request: Request) {
         otpExpiresAt,
       },
     });
+
+    if (!existing) {
+      await logUserActivity({
+        userId: user.id,
+        type: ACTIVITY.ACCOUNT_CREATED,
+        title: "ثبت‌نام در سیستم",
+        detail: `ایمیل: ${email}`,
+        createdAt: user.createdAt,
+      });
+    }
 
     // In production: send via SMTP (Nodemailer, SendGrid, etc.)
     // For development: return the OTP in the response

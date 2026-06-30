@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSimulatedTime } from "@/lib/timeMock";
 import { createSession } from "@/lib/session";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +53,13 @@ export async function POST(request: NextRequest) {
 
     // Create session and set cookie
     await createSession(user.id);
+
+    await logUserActivity({
+      userId: user.id,
+      type: ACTIVITY.LOGIN,
+      title: "ورود به حساب",
+      createdAt: simulatedTime,
+    });
 
     // Return safe user data
     const { otpCode: _, otpExpiresAt: __, ...safeUser } = user;

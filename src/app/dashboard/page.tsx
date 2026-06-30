@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { canStartMatching, formatUsd, getMatchFeeCents } from "@/lib/wallet";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export default function DashboardPage() {
   const [toast, setToast] = useState<{ type: string; message: string } | null>(null);
 
   // Wallet
-  const [depositAmount, setDepositAmount] = useState("200000");
+  const [depositAmount, setDepositAmount] = useState("5");
   const [showDeposit, setShowDeposit] = useState(false);
   const [depositCurrency, setDepositCurrency] = useState("usdttrc20");
   const [currencies, setCurrencies] = useState<any[]>([]);
@@ -78,7 +79,7 @@ export default function DashboardPage() {
         setActiveDeposit(data.deposit);
         if (data.deposit.status === "COMPLETED") {
           setUser((u: any) => ({ ...u, walletBalance: data.balance }));
-          showToast("success", `${data.deposit.amountTomans.toLocaleString()} تومان به کیف پول اضافه شد`);
+          showToast("success", `${formatUsd(data.deposit.amountCents)} به کیف پول اضافه شد`);
         }
       } catch {}
     };
@@ -107,7 +108,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/wallet/crypto/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: parseInt(depositAmount), currency: depositCurrency }),
+        body: JSON.stringify({ amount: parseFloat(depositAmount), currency: depositCurrency }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -212,6 +213,26 @@ export default function DashboardPage() {
     finally { setActionLoading(false); }
   };
 
+  const handleScheduleAction = async (action: string) => {
+    if (!match) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/match/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId: match.id, action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("success", data.message);
+        await fetchData();
+      } else {
+        showToast("error", data.error);
+      }
+    } catch { showToast("error", "خطای شبکه"); }
+    finally { setActionLoading(false); }
+  };
+
   const handleSaveClothing = async () => {
     setActionLoading(true);
     try {
@@ -243,8 +264,13 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-  const fee = user.gender === "MALE" ? 200000 : 50000;
-  const canInitiate = user.isVerified && user.selfieStatus === "APPROVED" && user.walletBalance >= fee && !user.isSearching;
+  const fee = getMatchFeeCents(user.gender);
+  const canInitiate =
+    user.isVerified &&
+    user.selfieStatus === "APPROVED" &&
+    canStartMatching(user.gender, user.walletBalance) &&
+    !user.isSearching;
+  const hasDebt = user.gender === "FEMALE" && user.walletBalance < 0;
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -267,7 +293,12 @@ export default function DashboardPage() {
             <div className="stat-icon" style={{ background: "var(--accent-soft)" }}>💰</div>
             <div className="stat-info">
               <h3>کیف پول</h3>
-              <div className="stat-value">{user.walletBalance.toLocaleString()} <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>تومان</span></div>
+              <div className="stat-value">{formatUsd(user.walletBalance)}</div>
+              {hasDebt && (
+                <p style={{ fontSize: "0.75rem", color: "var(--danger)", marginTop: "4px" }}>
+                  برای استفاده مجدد کیف پول را شارژ کنید
+                </p>
+              )}
             </div>
           </div>
           <div className="glass-card stat-card">
@@ -293,12 +324,12 @@ export default function DashboardPage() {
               </div>
 
               <div className="input-group">
-                <label>مبلغ (تومان)</label>
-                <input className="input" type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} min={50000} step={50000} />
+                <label>مبلغ (دلار)</label>
+                <input className="input" type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} min={1} step={0.5} />
                 <div style={{ display: "flex", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
-                  {["200000", "500000", "1000000"].map((amt) => (
+                  {["1", "5", "10"].map((amt) => (
                     <button key={amt} className="btn btn-ghost btn-sm" onClick={() => setDepositAmount(amt)} style={{ fontSize: "0.75rem" }}>
-                      {parseInt(amt).toLocaleString()}
+                      ${amt}
                     </button>
                   ))}
                 </div>
@@ -347,7 +378,7 @@ export default function DashboardPage() {
                       {activeDeposit.payAmount} {currencyLabel(activeDeposit.payCurrency)}
                     </div>
                     <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-                      معادل {activeDeposit.amountTomans.toLocaleString()} تومان
+                      معادل {formatUsd(activeDeposit.amountCents)}
                     </div>
                   </div>
 
@@ -384,7 +415,7 @@ export default function DashboardPage() {
 
               {activeDeposit.status === "COMPLETED" && (
                 <p style={{ textAlign: "center", color: "var(--success)", fontSize: "0.9rem" }}>
-                  {activeDeposit.amountTomans.toLocaleString()} تومان به کیف پول شما اضافه شد
+                  {formatUsd(activeDeposit.amountCents)} به کیف پول شما اضافه شد
                 </p>
               )}
 
@@ -429,7 +460,9 @@ export default function DashboardPage() {
             <div style={{ fontSize: "3rem", marginBottom: "16px" }}>☕</div>
             <h3 style={{ fontSize: "1.1rem", marginBottom: "8px" }}>آماده‌اید برای یه قرار بلایند؟</h3>
             <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "20px" }}>
-              هزینه: {fee.toLocaleString()} تومان • موجودی: {user.walletBalance.toLocaleString()} تومان
+              {user.gender === "FEMALE"
+                ? "مچ رایگان است • در صورت عدم حضور در قرار، $0.50 جریمه می‌شود"
+                : `هزینه: ${formatUsd(fee)} • موجودی: ${formatUsd(user.walletBalance)}`}
             </p>
             <button
               className="btn btn-primary btn-lg"
@@ -438,7 +471,12 @@ export default function DashboardPage() {
             >
               {actionLoading ? <span className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /> : "شروع جستجوی مچ 💕"}
             </button>
-            {user.walletBalance < fee && (
+            {!canInitiate && hasDebt && (
+              <p style={{ fontSize: "0.8rem", color: "var(--danger)", marginTop: "8px" }}>
+                موجودی منفی دارید — ابتدا کیف پول را شارژ کنید
+              </p>
+            )}
+            {!canInitiate && !hasDebt && user.gender === "MALE" && user.walletBalance < fee && (
               <p style={{ fontSize: "0.8rem", color: "var(--danger)", marginTop: "8px" }}>موجودی کافی نیست — ابتدا کیف پول رو شارژ کنید</p>
             )}
           </div>
@@ -599,6 +637,27 @@ export default function DashboardPage() {
               <Link href={`/chat/${match.id}`} className="btn btn-primary btn-block btn-lg" style={{ marginTop: "16px" }}>
                 💬 ورود به چت موقت
               </Link>
+            )}
+
+            {match.canCompleteMatch && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "16px" }}>
+                <button
+                  className="btn btn-success btn-block"
+                  disabled={actionLoading}
+                  onClick={() => handleScheduleAction("complete_match")}
+                >
+                  ✅ قرار برگزار شد
+                </button>
+                {match.isMale && match.canReportNoShow && (
+                  <button
+                    className="btn btn-danger btn-block"
+                    disabled={actionLoading}
+                    onClick={() => handleScheduleAction("report_no_show")}
+                  >
+                    🚫 طرف مقابل نیومد (جریمه $0.50)
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}

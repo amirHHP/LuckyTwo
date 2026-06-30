@@ -61,6 +61,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="link-icon">📊</span>
             <span>داشبورد اصلی</span>
           </Link>
+          <Link href="/admin/users" className={`sidebar-link ${pathname.startsWith("/admin/users") ? "active" : ""}`}>
+            <span className="link-icon">👤</span>
+            <span>مدیریت کاربران</span>
+          </Link>
           <Link href="/admin/selfies" className={`sidebar-link ${pathname === "/admin/selfies" ? "active" : ""}`}>
             <span className="link-icon">📸</span>
             <span>تأیید سلفی‌ها</span>

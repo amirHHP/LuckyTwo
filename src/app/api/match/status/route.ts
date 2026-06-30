@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { getSimulatedTime } from "@/lib/timeMock";
 import { requireUser } from "@/lib/session";
 
+const NO_SHOW_GRACE_MS = 30 * 60 * 1000;
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireUser(request);
@@ -44,10 +46,13 @@ export async function GET(request: NextRequest) {
     let partnerClues = null;
     let t24Revealed = false;
     let chatActive = false;
+    let canReportNoShow = false;
+    let canCompleteMatch = false;
 
     if (match.status === "SCHEDULE_CONFIRMED" && match.timeSlotSelected) {
       const dateScheduled = new Date(match.timeSlotSelected);
       const timeDiff = dateScheduled.getTime() - simulatedTime.getTime();
+      const scheduledPassed = simulatedTime.getTime() >= dateScheduled.getTime();
 
       // T-24 Hours reveal check
       if (timeDiff <= 24 * 60 * 60 * 1000) {
@@ -74,6 +79,13 @@ export async function GET(request: NextRequest) {
       if (simulatedTimeMs >= chatStart && simulatedTimeMs <= chatEnd) {
         chatActive = true;
       }
+
+      if (scheduledPassed) {
+        canCompleteMatch = true;
+        if (isMale && simulatedTime.getTime() >= dateScheduled.getTime() + NO_SHOW_GRACE_MS) {
+          canReportNoShow = true;
+        }
+      }
     }
 
     const safeMatch = {
@@ -88,6 +100,8 @@ export async function GET(request: NextRequest) {
       isMale,
       t24Revealed,
       chatActive,
+      canReportNoShow,
+      canCompleteMatch,
       cafeDetails,
       partnerClues,
     };

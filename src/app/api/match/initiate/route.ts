@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { runMatchmakingEngine } from "@/lib/matching";
 import { getSimulatedTime } from "@/lib/timeMock";
 import { requireUser } from "@/lib/session";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
+import { canStartMatching, formatUsd, getMatchFeeCents } from "@/lib/wallet";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,26 +22,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine matching fee
-    const fee = user.gender === "MALE" ? 200000 : 50000;
+    const fee = getMatchFeeCents(user.gender);
 
-    if (user.walletBalance < fee) {
+    if (!canStartMatching(user.gender, user.walletBalance)) {
+      if (user.gender === "FEMALE" && user.walletBalance < 0) {
+        return NextResponse.json(
+          {
+            error: `موجودی منفی دارید (${formatUsd(user.walletBalance)}). برای استفاده مجدد ابتدا کیف پول را شارژ کنید.`,
+          },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
-        { error: `موجودی کافی نیست. برای شروع فرآیند هماهنگی به ${fee.toLocaleString()} تومان نیاز دارید.` },
+        { error: `موجودی کافی نیست. برای شروع جستجو به ${formatUsd(fee)} نیاز دارید.` },
         { status: 400 }
       );
     }
 
     const simulatedTime = await getSimulatedTime();
 
-    // Deduct fee and set searching state
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        walletBalance: user.walletBalance - fee,
+        ...(fee > 0 ? { walletBalance: user.walletBalance - fee } : {}),
         isSearching: true,
         searchingSince: simulatedTime,
       },
+    });
+
+    await logUserActivity({
+      userId: user.id,
+      type: ACTIVITY.SEARCH_STARTED,
+      title: "شروع جستجوی قرار",
+      detail:
+        fee > 0
+          ? `هزینه ${formatUsd(fee)} کسر شد`
+          : "جستجوی رایگان آغاز شد",
+      createdAt: simulatedTime,
     });
 
     await runMatchmakingEngine();

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 
 export default function AdminSelfiesPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -90,13 +91,20 @@ export default function AdminSelfiesPage() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <div style={{ fontWeight: 600, fontSize: "1rem" }}>{user.firstName || "بدون نام"}</div>
+                <div style={{ fontWeight: 600, fontSize: "1rem" }}>
+                  <Link href={`/admin/users/${user.id}`} style={{ color: "inherit" }}>
+                    {user.firstName || "بدون نام"}
+                  </Link>
+                </div>
                 <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>ایمیل: {user.email}</div>
                 <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>سن: {user.age} سال • جنسیت: {user.gender === "MALE" ? "پسر" : "دختر"}</div>
                 <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>شغل: {user.occupation || "—"}</div>
               </div>
 
               <div style={{ display: "flex", gap: "10px", marginTop: "auto" }}>
+                <Link href={`/admin/users/${user.id}`} className="btn btn-ghost btn-sm" style={{ flex: 1, textAlign: "center" }}>
+                  پروفایل
+                </Link>
                 <button
                   className="btn btn-success"
                   style={{ flex: 1 }}

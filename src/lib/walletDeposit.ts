@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { mapExternalStatus } from "@/lib/cryptoPayments";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
+import { formatUsd } from "@/lib/wallet";
 
 export async function completeCryptoDeposit(depositId: string): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
@@ -8,7 +10,7 @@ export async function completeCryptoDeposit(depositId: string): Promise<boolean>
 
     await tx.user.update({
       where: { id: deposit.userId },
-      data: { walletBalance: { increment: deposit.amountTomans } },
+      data: { walletBalance: { increment: deposit.amountCents } },
     });
 
     await tx.cryptoDeposit.update({
@@ -17,6 +19,20 @@ export async function completeCryptoDeposit(depositId: string): Promise<boolean>
     });
 
     return true;
+  }).then(async (credited) => {
+    if (credited) {
+      const deposit = await prisma.cryptoDeposit.findUnique({ where: { id: depositId } });
+      if (deposit) {
+        await logUserActivity({
+          userId: deposit.userId,
+          type: ACTIVITY.CRYPTO_DEPOSIT_COMPLETED,
+          title: "تکمیل شارژ کریپتو",
+          detail: `${formatUsd(deposit.amountCents)} به کیف پول اضافه شد`,
+          metadata: { depositId },
+        });
+      }
+    }
+    return credited;
   });
 }
 
@@ -42,6 +58,12 @@ export async function syncDepositStatus(
     await prisma.cryptoDeposit.update({
       where: { id: depositId },
       data: { status: mapped, externalStatus },
+    });
+    await logUserActivity({
+      userId: deposit.userId,
+      type: ACTIVITY.CRYPTO_DEPOSIT_FAILED,
+      title: mapped === "EXPIRED" ? "انقضای درخواست شارژ کریپتو" : "ناموفق بودن شارژ کریپتو",
+      metadata: { depositId },
     });
     return { status: mapped, credited: false };
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 
 export default function AdminMatchesPage() {
   const [searchingUsers, setSearchingUsers] = useState<any[]>([]);
@@ -105,7 +106,9 @@ export default function AdminMatchesPage() {
                     const hours = Math.floor(durationMs / (1000 * 60 * 60));
                     return (
                       <tr key={u.id}>
-                        <td style={{ fontWeight: 600 }}>{u.firstName}</td>
+                        <td style={{ fontWeight: 600 }}>
+                          <Link href={`/admin/users/${u.id}`}>{u.firstName}</Link>
+                        </td>
                         <td>{u.gender === "MALE" ? "پسر" : "دختر"}</td>
                         <td>{u.email}</td>
                         <td><span className="badge badge-info">{u.mbtiType}</span></td>
@@ -152,11 +155,15 @@ export default function AdminMatchesPage() {
                   {matches.map((m) => (
                     <tr key={m.id}>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{m.male?.firstName}</div>
+                        <div style={{ fontWeight: 600 }}>
+                          <Link href={`/admin/users/${m.male?.id}`}>{m.male?.firstName}</Link>
+                        </div>
                         <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{m.male?.email}</div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{m.female?.firstName}</div>
+                        <div style={{ fontWeight: 600 }}>
+                          <Link href={`/admin/users/${m.female?.id}`}>{m.female?.firstName}</Link>
+                        </div>
                         <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{m.female?.email}</div>
                       </td>
                       <td>
@@ -170,11 +177,15 @@ export default function AdminMatchesPage() {
                         <span className={`badge ${
                           m.status === "SCHEDULE_CONFIRMED" ? "badge-success" :
                           m.status === "SCHEDULE_PENDING" ? "badge-warning" :
-                          m.status === "CANCELLED" ? "badge-danger" : "badge-info"
+                          m.status === "CANCELLED" ? "badge-danger" :
+                          m.status === "NO_SHOW" ? "badge-danger" :
+                          m.status === "COMPLETED" ? "badge-success" : "badge-info"
                         }`}>
                           {m.status === "SCHEDULE_CONFIRMED" ? "قفل شده" :
                            m.status === "SCHEDULE_PENDING" ? "در انتظار تایید" :
-                           m.status === "CANCELLED" ? "لغو شده" : m.status}
+                           m.status === "CANCELLED" ? "لغو شده" :
+                           m.status === "NO_SHOW" ? "عدم حضور" :
+                           m.status === "COMPLETED" ? "تکمیل شده" : m.status}
                         </span>
                       </td>
                       <td>

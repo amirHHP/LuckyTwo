@@ -99,7 +99,7 @@ async function main() {
       mbtiType: "INTJ",
       interests: JSON.stringify(["Tech/Startup", "Gaming", "Vinyl Music", "Minimalist", "Books"]),
       zones: JSON.stringify(["NORTH", "CENTER", "WEST"]),
-      walletBalance: 400000,
+      walletBalance: 500,
       height: 180,
       clothing: "یک تیشرت مشکی اورسایز و شلوار کتان طوسی",
     },
@@ -119,7 +119,7 @@ async function main() {
       mbtiType: "ENFP",
       interests: JSON.stringify(["Tech/Startup", "Camping", "Vinyl Music", "Anime", "Photography"]),
       zones: JSON.stringify(["NORTH", "CENTER", "EAST"]),
-      walletBalance: 100000,
+      walletBalance: 0,
       height: 168,
       clothing: "یک مانتو لنین سبز روشن و شال سفید",
     },
@@ -139,7 +139,7 @@ async function main() {
       mbtiType: "INFJ",
       interests: JSON.stringify(["Minimalist", "Books", "Photography", "Boardgames", "Fitness"]),
       zones: JSON.stringify(["WEST", "CENTER", "NORTH"]),
-      walletBalance: 200000,
+      walletBalance: 100,
     },
   });
 
@@ -157,7 +157,7 @@ async function main() {
       mbtiType: "ISTJ",
       interests: JSON.stringify(["Camping", "Books", "Fitness", "Gaming", "Anime"]),
       zones: JSON.stringify(["WEST", "NORTH", "CENTER"]),
-      walletBalance: 50000,
+      walletBalance: 0,
     },
   });
 

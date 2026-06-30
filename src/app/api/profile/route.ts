@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
 
 export async function GET(request: NextRequest) {
   try {
@@ -55,6 +56,24 @@ export async function POST(request: NextRequest) {
       where: { id: auth.user.id },
       data: updateData,
     });
+
+    const changedFields: string[] = [];
+    if (firstName !== undefined) changedFields.push("نام");
+    if (age !== undefined) changedFields.push("سن");
+    if (occupation !== undefined) changedFields.push("شغل");
+    if (gender !== undefined) changedFields.push("جنسیت");
+    if (height !== undefined) changedFields.push("قد");
+    if (interests !== undefined) changedFields.push("علاقه‌مندی‌ها");
+    if (zones !== undefined) changedFields.push("مناطق");
+
+    if (changedFields.length > 0) {
+      await logUserActivity({
+        userId: auth.user.id,
+        type: ACTIVITY.PROFILE_UPDATED,
+        title: "بروزرسانی پروفایل",
+        detail: changedFields.join("، "),
+      });
+    }
 
     return NextResponse.json({ success: true, message: "پروفایل با موفقیت بروزرسانی شد", user });
   } catch (error: any) {

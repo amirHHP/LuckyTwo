@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,9 +22,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
+    // Validate file type (camera captures on mobile may have empty MIME type)
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
+    let mimeType = file.type;
+    if (!mimeType || mimeType === "application/octet-stream") {
+      const name = file.name.toLowerCase();
+      if (name.endsWith(".png")) mimeType = "image/png";
+      else if (name.endsWith(".webp")) mimeType = "image/webp";
+      else mimeType = "image/jpeg";
+    }
+    if (!allowedTypes.includes(mimeType)) {
       return NextResponse.json(
         { error: "فرمت فایل نامعتبر است. فقط JPEG، PNG یا WebP مجاز هستند" },
         { status: 400 }
@@ -39,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save file to public/uploads/selfies/
-    const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
+    const ext = mimeType.split("/")[1] === "jpeg" ? "jpg" : mimeType.split("/")[1];
     const filename = `${auth.user.id}-${Date.now()}.${ext}`;
     const uploadDir = path.join(process.cwd(), "public", "uploads", "selfies");
     
@@ -58,6 +66,13 @@ export async function POST(request: NextRequest) {
         selfieStatus: "PENDING",
         isVerified: false,
       },
+    });
+
+    await logUserActivity({
+      userId: auth.user.id,
+      type: ACTIVITY.SELFIE_UPLOADED,
+      title: "بارگذاری سلفی",
+      metadata: { selfieUrl },
     });
 
     return NextResponse.json({

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { isMockMode } from "@/lib/cryptoPayments";
 import { syncDepositStatus } from "@/lib/walletDeposit";
+import { formatUsd } from "@/lib/wallet";
 
 export async function POST(request: NextRequest) {
   if (!isMockMode) {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
       credited,
       balance: user?.walletBalance,
       message: credited
-        ? `${deposit.amountTomans.toLocaleString()} تومان به کیف پول اضافه شد`
+        ? `${formatUsd(deposit.amountCents)} به کیف پول اضافه شد`
         : "وضعیت پرداخت به‌روز شد",
     });
   } catch (error: unknown) {

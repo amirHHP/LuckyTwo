@@ -47,7 +47,7 @@ export async function GET(
     return NextResponse.json({
       deposit: {
         id: deposit.id,
-        amountTomans: deposit.amountTomans,
+        amountCents: deposit.amountCents,
         payCurrency: deposit.payCurrency,
         payAmount: deposit.payAmount,
         payAddress: deposit.payAddress,

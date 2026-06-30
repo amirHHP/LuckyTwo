@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSimulatedTime } from "@/lib/timeMock";
 import { requireUser } from "@/lib/session";
+import { ACTIVITY, logUserActivity } from "@/lib/activity";
 
 export async function GET(request: NextRequest) {
   try {
@@ -130,6 +131,15 @@ export async function POST(request: NextRequest) {
         text,
         createdAt: simulatedTime,
       },
+    });
+
+    await logUserActivity({
+      userId: auth.user.id,
+      type: ACTIVITY.MESSAGE_SENT,
+      title: "ارسال پیام در چت",
+      detail: text.length > 80 ? `${text.slice(0, 80)}…` : text,
+      metadata: { matchId, messageId: message.id },
+      createdAt: simulatedTime,
     });
 
     return NextResponse.json({

@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { getSimulatedTime } from "./timeMock";
+import { ACTIVITY, logUserActivity } from "./activity";
 
 // Ideal MBTI Complement Matches
 const idealMatches: Record<string, string[]> = {
@@ -177,9 +178,27 @@ export async function runMatchmakingEngine(): Promise<{ matchesCreated: number; 
         compatibilityScore: bestMatch.score,
         cafeId: chosenCafe.id,
         timeSlotOptions: JSON.stringify(slots.map((s) => s.toISOString())),
-        malePaid: true,  // Wallet was debited when initiating searching
-        femalePaid: true, // Wallet was debited when initiating searching
+        malePaid: true,
+        femalePaid: false,
       },
+    });
+
+    const matchDetail = `در ${chosenCafe.name} — سازگاری ${bestMatch.score}%`;
+    await logUserActivity({
+      userId: male.id,
+      type: ACTIVITY.MATCH_CREATED,
+      title: "ایجاد قرار ملاقات",
+      detail: `با ${female.firstName ?? "کاربر"} ${matchDetail}`,
+      metadata: { matchId: match.id, role: "male" },
+      createdAt: match.createdAt,
+    });
+    await logUserActivity({
+      userId: female.id,
+      type: ACTIVITY.MATCH_CREATED,
+      title: "ایجاد قرار ملاقات",
+      detail: `با ${male.firstName ?? "کاربر"} ${matchDetail}`,
+      metadata: { matchId: match.id, role: "female" },
+      createdAt: match.createdAt,
     });
 
     // De-activate searching status

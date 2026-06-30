@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { SelfieCapture } from "@/components/SelfieCapture";
 
 const MBTI_QUESTIONS = [
   { id: 1, text: "در میهمانی‌ها بیشتر با افراد جدید معاشرت می‌کنید یا با افراد قدیمی هم‌صحبت می‌شوید؟", dim: "EI", optA: "معاشرت با افراد جدید", optB: "صحبت با دوستان قدیمی" },
@@ -64,7 +65,31 @@ export default function OnboardingPage() {
   // Step 5 zones
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isFullyOnboarded = (user: {
+    firstName?: string | null;
+    gender?: string | null;
+    mbtiType?: string | null;
+    interests?: string | null;
+    zones?: string | null;
+  }) =>
+    Boolean(
+      user.firstName &&
+        user.gender &&
+        user.mbtiType &&
+        user.interests !== "[]" &&
+        user.zones !== "[]"
+    );
+
+  const getPostSelfieStep = (user: {
+    mbtiType?: string | null;
+    interests?: string | null;
+    zones?: string | null;
+  }) => {
+    if (!user.mbtiType) return 3;
+    const interests = JSON.parse(user.interests || "[]");
+    if (interests.length !== 5) return 4;
+    return 5;
+  };
 
   // Check if user is logged in and has completed onboarding
   useEffect(() => {
@@ -78,8 +103,8 @@ export default function OnboardingPage() {
         const data = await res.json();
         const user = data.user;
 
-        // If already fully onboarded, redirect to dashboard
-        if (user.firstName && user.gender && user.mbtiType && user.interests !== "[]" && user.zones !== "[]") {
+        // If already fully onboarded (and selfie not rejected), redirect to dashboard
+        if (isFullyOnboarded(user) && user.selfieStatus !== "REJECTED" && user.selfieUrl) {
           router.push("/dashboard");
           return;
         }
@@ -146,7 +171,12 @@ export default function OnboardingPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
-      setStep(3);
+      const user = data.user;
+      if (isFullyOnboarded(user)) {
+        router.push("/dashboard");
+      } else {
+        setStep(getPostSelfieStep(user));
+      }
     } catch { setError("خطای شبکه"); }
     finally { setLoading(false); }
   };
@@ -199,12 +229,14 @@ export default function OnboardingPage() {
     finally { setLoading(false); }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelfieFile(file);
-      setSelfiePreview(URL.createObjectURL(file));
-    }
+  const handleSelfieCapture = (file: File, previewUrl: string) => {
+    setSelfieFile(file);
+    setSelfiePreview(previewUrl);
+  };
+
+  const handleSelfieClear = () => {
+    setSelfieFile(null);
+    setSelfiePreview(null);
   };
 
   const toggleInterest = (tag: string) => {
@@ -320,27 +352,11 @@ export default function OnboardingPage() {
           <h2 className="step-title">تأیید هویت</h2>
           <p className="step-subtitle">یه سلفی واضح آپلود کنید — این عکس فقط برای تأیید هویت توسط تیم ماست و به کسی نشون داده نمیشه</p>
 
-          <div className="selfie-upload">
-            <div className="selfie-dropzone" onClick={() => fileInputRef.current?.click()}>
-              {selfiePreview ? (
-                <img src={selfiePreview} alt="selfie preview" />
-              ) : (
-                <>
-                  <span className="dropzone-icon">📸</span>
-                  <span className="dropzone-text">کلیک کنید یا بکشید</span>
-                </>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleFileChange}
-              />
-            </div>
-            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", textAlign: "center" }}>
-              فرمت‌های مجاز: JPG, PNG, WebP — حداکثر ۵ مگابایت
-            </p>
-          </div>
+          <SelfieCapture
+            preview={selfiePreview}
+            onCapture={handleSelfieCapture}
+            onClear={handleSelfieClear}
+          />
 
           <div className="step-actions">
             <button className="btn btn-ghost" onClick={() => setStep(1)}>بازگشت</button>

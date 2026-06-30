@@ -1,0 +1,34 @@
+{
+  "name": "luckytwo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "node node_modules/prisma/build/index.js generate",
+    "dev": "node node_modules/prisma/build/index.js generate && node node_modules/next/dist/bin/next dev",
+    "build": "node node_modules/prisma/build/index.js generate && node node_modules/next/dist/bin/next build",
+    "start": "node node_modules/next/dist/bin/next start",
+    "lint": "next lint",
+    "db:push": "node node_modules/prisma/build/index.js db push --force-reset",
+    "db:seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@prisma/adapter-libsql": "6.19.3",
+    "@prisma/client": "^6.19.3",
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.14.0",
+    "next": "16.2.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "prisma": "^6.19.3",
+    "typescript": "^5"
+  }
+}

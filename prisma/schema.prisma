@@ -1,0 +1,124 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  firstName       String?
+  age             Int?
+  gender          String?   // "MALE" or "FEMALE"
+  occupation      String?
+  selfieUrl       String?   // File path in public/uploads/selfies/
+  isVerified      Boolean   @default(false)
+  selfieStatus    String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  mbtiType        String?   // e.g., "INFJ"
+  interests       String    @default("[]")      // JSON array of strings
+  zones           String    @default("[]")      // JSON array of strings (e.g. ["WEST", "NORTH"])
+  walletBalance   Int       @default(0)         // In Tomans
+  isSearching     Boolean   @default(false)
+  searchingSince  DateTime?
+  otpCode         String?
+  otpExpiresAt    DateTime?
+  height          Int?      // Height in cm
+  clothing        String?   // "Wearing green linen shirt..."
+  role            String    @default("user")    // "user" or "admin"
+  
+  // Relations
+  matchesAsMale   Match[]   @relation("MaleMatches")
+  matchesAsFemale Match[]   @relation("FemaleMatches")
+  messages        Message[]
+  sessions        Session[]
+  cryptoDeposits  CryptoDeposit[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model CryptoDeposit {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+
+  amountTomans   Int
+  payCurrency    String
+  payAmount      Float
+  payAddress     String?
+
+  externalId     String?   @unique
+  externalStatus String    @default("waiting")
+  status         String    @default("PENDING") // PENDING, CONFIRMING, COMPLETED, EXPIRED, FAILED
+
+  expiresAt      DateTime
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Cafe {
+  id          String   @id @default(uuid())
+  name        String
+  zone        String   // "NORTH", "WEST", "CENTER", etc.
+  address     String
+  lat         Float
+  lng         Float
+  description String?
+  features    String   @default("[]") // JSON array of strings
+  isVerified  Boolean  @default(true)
+  matches     Match[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model Match {
+  id                 String    @id @default(uuid())
+  maleId             String
+  femaleId           String
+  male               User      @relation("MaleMatches", fields: [maleId], references: [id])
+  female             User      @relation("FemaleMatches", fields: [femaleId], references: [id])
+  
+  status             String    @default("SEARCHING") // SEARCHING, PAYMENT_PENDING, SCHEDULE_PENDING, SCHEDULE_CONFIRMED, COMPLETED, REFUNDED, CANCELLED
+  compatibilityScore Int       @default(0)
+  
+  // Scheduling details
+  cafeId             String?
+  cafe               Cafe?     @relation(fields: [cafeId], references: [id])
+  timeSlotSelected   DateTime? // The final chosen date/time
+  timeSlotOptions    String    @default("[]") // JSON array of 3 slot options (DateTime strings)
+  
+  // Tracking
+  malePaid           Boolean   @default(false)
+  femalePaid         Boolean   @default(false)
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  matchId   String
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  text      String
+  createdAt DateTime @default(now())
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}
